@@ -1,0 +1,9 @@
+_target_: src.datamodule.flickr.FlickrDatamodule
+
+data_dir: "data/flickr/"
+train_ratio: 0.8
+val_ratio: 0.1
+test_ratio: 0.1
+batch_size: 64
+num_workers: 0
+pin_memory: False

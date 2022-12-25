@@ -1,11 +1,16 @@
+import pdb
 from typing import Any, Dict, Optional, Tuple
 
 import torch
 from pytorch_lightning import LightningDataModule
+from pytorch_lightning.trainer.supporters import CombinedLoader
 from torch.utils.data import ConcatDataset, DataLoader, Dataset, random_split
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
-
+from PIL import Image
+import pandas as pd
+from os import listdir
+from sklearn.model_selection import train_test_split
 
 class FlickrDatamodule(LightningDataModule):
     """
@@ -14,102 +19,86 @@ class FlickrDatamodule(LightningDataModule):
 
     def __init__(
         self,
-        data_dir: str = "data/",
-        train_val_test_split: Tuple[int, int, int] = (55_000, 5_000, 10_000),
+        data_dir: str,
+        train_ratio: float = 0.8,
+        val_ratio: float = 0.1,
+        test_ratio: float = 0.1,
         batch_size: int = 64,
         num_workers: int = 0,
         pin_memory: bool = False,
+        image_col: str = 'image',
+        caption_col:str = 'caption'
+
     ):
         super().__init__()
 
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
+        self.data_dir = data_dir
+        self.image_col = image_col
+        self.caption_col = caption_col
+        self.train_ratio = train_ratio
+        self.val_ratio = val_ratio
+        self.test_ratio = test_ratio
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.pin_memory = pin_memory
 
-        # data transformations
-        self.transforms = transforms.Compose(
-            [transforms.ToTensor(), transforms.Normalize((0.1307,), (0.3081,))]
-        )
+        self.df_train, self.df_val, self.df_test = self.prepare_data()
 
-        self.data_train: Optional[Dataset] = None
-        self.data_val: Optional[Dataset] = None
-        self.data_test: Optional[Dataset] = None
 
-    @property
-    def num_classes(self):
-        return 10
+    def prepare_data(self, random_state = 100):
+        import pdb
 
-    def prepare_data(self):
-        """Download data if needed.
+        pdb.set_trace()
+        self.df = pd.read_csv(self.data_dir + "captions.txt")
 
-        Do not use it to assign state (self.x = y).
-        """
-        MNIST(self.hparams.data_dir, train=True, download=True)
-        MNIST(self.hparams.data_dir, train=False, download=True)
+        # Get images paths that exist in the data folder (in case sample set is being used)
+        image_paths_available = listdir(self.data_dir + 'images')
 
-    def setup(self, stage: Optional[str] = None):
-        """Load data. Set variables: `self.data_train`, `self.data_val`, `self.data_test`.
+        # filter self.df for image_paths_available
+        self.df = self.df.loc[self.df[self.image_col].isin(image_paths_available)]
 
-        This method is called by lightning with both `trainer.fit()` and `trainer.test()`, so be
-        careful not to execute things like random split twice!
-        """
-        # load and split datasets only if not loaded already
-        if not self.data_train and not self.data_val and not self.data_test:
-            trainset = MNIST(self.hparams.data_dir, train=True, transform=self.transforms)
-            testset = MNIST(self.hparams.data_dir, train=False, transform=self.transforms)
-            dataset = ConcatDataset(datasets=[trainset, testset])
-            self.data_train, self.data_val, self.data_test = random_split(
-                dataset=dataset,
-                lengths=self.hparams.train_val_test_split,
-                generator=torch.Generator().manual_seed(42),
-            )
+        # add train, val, test split
+        df_train, df_rest = train_test_split(self.df, train_size = self.train_ratio, shuffle = False, randome_state = random_state)
+        df_val, df_test = train_test_split(df_rest, test_size = self.test_ratio/ (1 - self.train_ratio), shuffle = False, random_state = random_state)
+
+        return df_train, df_val, df_test
 
     def train_dataloader(self):
-        return DataLoader(
-            dataset=self.data_train,
+        import pdb
+
+        pdb.set_trace()
+
+        images = self.df_train[self.image_col]
+        captions = self.df_train[self.caption_col]
+
+        image_data_loader = DataLoader(
+            dataset=images,
             batch_size=self.hparams.batch_size,
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
-            shuffle=True,
+            shuffle=False,
         )
+
+        caption_data_loader = DataLoader(
+            dataset=captions,
+            batch_size=self.hparams.batch_size,
+            num_workers=self.hparams.num_workers,
+            pin_memory=self.hparams.pin_memory,
+            shuffle=False,
+        )
+
+        return CombinedLoader({"image_path": image_data_loader, "caption": caption_data_loader})
+
 
     def val_dataloader(self):
-        return DataLoader(
-            dataset=self.data_val,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
-        )
+        pass
 
     def test_dataloader(self):
-        return DataLoader(
-            dataset=self.data_test,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
-            shuffle=False,
-        )
-
+        pass
     def teardown(self, stage: Optional[str] = None):
         """Clean up after fit or test."""
         pass
 
-    def state_dict(self):
-        """Extra things to save to checkpoint."""
-        return {}
+  
 
-    def load_state_dict(self, state_dict: Dict[str, Any]):
-        """Things to do when loading checkpoint."""
-        pass
-
-
-if __name__ == "__main__":
-    import hydra
-    import omegaconf
-    import pyrootutils
-
-    root = pyrootutils.setup_root(__file__, pythonpath=True)
-    cfg = omegaconf.OmegaConf.load(root / "configs" / "datamodule" / "mnist.yaml")
-    cfg.data_dir = str(root / "data")
-    _ = hydra.utils.instantiate(cfg)

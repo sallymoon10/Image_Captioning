@@ -1,4 +1,5 @@
-import pyrootutils
+import pdb
+from utils import pyrootutils
 
 root = pyrootutils.setup_root(
     search_from=__file__,
@@ -15,9 +16,9 @@ from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import LightningLoggerBase
 
-from src import utils
+from utils import pylogger, utils
 
-log = utils.get_pylogger(__name__)
+log = pylogger.get_pylogger(__name__)
 
 
 @utils.task_wrapper
@@ -38,7 +39,10 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     # set seed for random number generators in pytorch, numpy and python.random
     if cfg.get("seed"):
         pl.seed_everything(cfg.seed, workers=True)
-
+    
+    import pdb
+    pdb.set_trace()
+    
     log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
 
@@ -107,3 +111,8 @@ def main(cfg: DictConfig) -> Optional[float]:
 
 if __name__ == "__main__":
     main()
+
+    '''
+
+    poetry run python train.py
+    '''
