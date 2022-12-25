@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "medical-image-captioning"
+version = "0.1.0"
+description = ""
+authors = ["Sally"]
+readme = "README.md"
+packages = [{include = "medical_image_captioning"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+hydra-core = "^1.3.1"
+torch = "^1.13.1"
+torchvision = "^0.14.1"
+pytorch-lightning = "^1.8.6"
+torchmetrics = "^0.11.0"
+pillow = "^9.3.0"
+transformers = "^4.25.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
