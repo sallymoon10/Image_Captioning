@@ -56,7 +56,6 @@ class VitGpt2(LightningModule):
         
         image_paths = input["image_path"]
         caption_target = input["caption"]
-
         logits = 0
         loss = 0
 
@@ -84,7 +83,7 @@ class VitGpt2(LightningModule):
         return {"loss": loss, "logits": logits, "output_ids": output_ids}
     
     def training_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.model_step(batch)
+        loss, preds, targets = self(batch)
 
         # update and log metrics
         self.train_loss(loss)
@@ -99,7 +98,7 @@ class VitGpt2(LightningModule):
 
 
     def validation_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.model_step(batch)
+        loss, preds, targets = self(batch)
 
         # update and log metrics
         self.val_loss(loss)
@@ -117,7 +116,7 @@ class VitGpt2(LightningModule):
         self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
 
     def test_step(self, batch: Any, batch_idx: int):
-        loss, preds, targets = self.model_step(batch)
+        loss, preds, targets = self(batch)
 
         # update and log metrics
         self.test_loss(loss)
