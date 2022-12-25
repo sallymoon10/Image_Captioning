@@ -4,6 +4,7 @@ from torchmetrics import MaxMetric, MeanMetric
 from typing import Any, List
 from transformers import VisionEncoderDecoderModel, ViTFeatureExtractor, AutoTokenizer
 from PIL import Image
+from torch import nn
 
 class VitGpt2(LightningModule):
     '''
@@ -19,11 +20,8 @@ class VitGpt2(LightningModule):
         self.feature_extractor = ViTFeatureExtractor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
         self.tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
 
-
-
-
         # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss()
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -53,6 +51,9 @@ class VitGpt2(LightningModule):
         Load image path and text caption taget
         - reference: https://huggingface.co/nlpconnect/vit-gpt2-image-captioning
         '''
+        import pdb
+        pdb.set_trace()
+        
         image_paths = input["image_path"]
         caption_target = input["caption"]
 
@@ -70,14 +71,17 @@ class VitGpt2(LightningModule):
         pixel_values = self.feature_extractor(images=images, return_tensors="pt").pixel_values
         pixel_values = pixel_values.to(self.device)
 
-        output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
+        logits = self.model(pixel_values)
 
+        output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
         preds = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
         preds = [pred.strip() for pred in preds]
 
+        if caption_target is not None:
+            loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
+            loss = loss_fct(logits.view(-1, logits.size(-1)), caption_target.view(-1))
 
-
-        return {"loss": loss, "logits": logits}
+        return {"loss": loss, "logits": logits, "output_ids": output_ids}
     
     def training_step(self, batch: Any, batch_idx: int):
         loss, preds, targets = self.model_step(batch)
