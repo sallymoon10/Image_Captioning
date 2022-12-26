@@ -1,10 +1,11 @@
 from pytorch_lightning import LightningModule
 import torch
-from torchmetrics import MaxMetric, MeanMetric
+from torchmetrics import MinMetric, MeanMetric
 from typing import Any, List
 from transformers import VisionEncoderDecoderModel, ViTFeatureExtractor, AutoTokenizer
 from PIL import Image
 from torch import nn
+from utils.utils import freeze_model_and_make_eval
 
 class VitGpt2(LightningModule):
     '''
@@ -14,18 +15,16 @@ class VitGpt2(LightningModule):
         - implements cross attention to pay attention to visual features and generate text outputs
         - training: https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder
     '''
-    def __init__(self, optimizer, scheduler, data_dir: str, max_length = 16, num_beams = 4):
+    def __init__(self, optimizer, scheduler, data_dir: str, max_length = 16, num_beams = 4, num_layers_to_train = 1):
         super().__init__()
     
         self.optimizer = optimizer
         self.scheduler = scheduler
         self.gen_kwargs = {"max_length": max_length, "num_beams": num_beams}
+        self.num_layers_to_train = num_layers_to_train
 
         self.image_dir = data_dir + "images/"
-
-        self.model = VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
-        self.feature_extractor = ViTFeatureExtractor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
-        self.tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+        self.set_up_model_for_training()
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -33,8 +32,23 @@ class VitGpt2(LightningModule):
         self.test_loss = MeanMetric()
 
         # for tracking best so far validation accuracy
-        self.val_acc_best = MaxMetric()
+        self.val_loss_best = MinMetric()
 
+    def set_up_model_for_training(self):
+        '''Only unfreeze last N layers of encoder and decoder. To fine-tune small number of layers under low resource setting.'''
+        self.model = VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+        self.feature_extractor = ViTFeatureExtractor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+        self.tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
+        freeze_model_and_make_eval(self.model)
+        
+        self.unfreeze_from_layer_i(module = self.model.encoder, layer_i= len(list(self.model.encoder.parameters())) - self.num_layers_to_train - 1)
+        self.unfreeze_from_layer_i(module = self.model.decoder, layer_i= len(list(self.model.decoder.parameters())) - self.num_layers_to_train - 1)
+
+    def unfreeze_from_layer_i(self, module, layer_i: int):
+        for i, param in enumerate(module.parameters()):
+            if i >= layer_i:
+                param.requires_grad = True
+        
     def configure_optimizers(self):
         optimizer = self.optimizer(params=self.parameters())
         if self.scheduler is not None:
@@ -57,8 +71,6 @@ class VitGpt2(LightningModule):
         '''
         image_names = input["images"]
         caption_target = input["caption"]
-        logits = 0
-        loss = 0
         images = []
 
         for name in image_names:
@@ -68,75 +80,56 @@ class VitGpt2(LightningModule):
 
             images.append(i_image)
 
-        import pdb
-        pdb.set_trace()
-
         pixel_values = self.feature_extractor(images=images, return_tensors="pt").pixel_values # (bs, num_channels, w, h)
         pixel_values = pixel_values.to(self.device)
 
+        caption_target_ids = self.tokenizer(caption_target, return_tensors="pt", padding=True, truncation=True).input_ids
+        caption_target_ids = caption_target_ids.to(self.device)
 
         # generate output logits
-        loss = self.model(pixel_values=pixel_values, labels=caption_target).loss
+        loss = self.model(pixel_values=pixel_values, labels=caption_target_ids).loss
 
         # generate caption
         output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
-        output_caption = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
-        # caption = [pred.strip() for pred in preds]
+        output_caption = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
 
         return {"loss": loss, "output_caption": output_caption}
     
     def training_step(self, batch: Any, batch_idx: int):
+        output = self(batch)
 
-        import pdb
-        pdb.set_trace()
-
-        loss, preds, targets = self(batch)
-
-        # update and log metrics
-        self.train_loss(loss)
-        self.train_acc(preds, targets)
+        self.train_loss(output["loss"])
         self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
+        return output
 
-        # we can return here dict with any tensors
-        # and then read it in some callback or in `training_epoch_end()` below
-        # remember to always return loss from `training_step()` or backpropagation will fail!
-        return {"loss": loss, "preds": preds, "targets": targets}
-
+    def training_epoch_end(self, outputs: List[Any]):
+        self.log_params_as_histogram()
 
     def validation_step(self, batch: Any, batch_idx: int):
-
-        import pdb
-        pdb.set_trace()
-
-        loss, preds, targets = self(batch)
-
+        output = self(batch)
         # update and log metrics
-        self.val_loss(loss)
-        self.val_acc(preds, targets)
+        self.val_loss(output["loss"])
         self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
 
-        return {"loss": loss, "preds": preds, "targets": targets}
+        return output
     
     def validation_epoch_end(self, outputs: List[Any]):
-        acc = self.val_acc.compute()  # get current val acc
-        self.val_acc_best(acc)  # update best so far val acc
-        # log `val_acc_best` as a value through `.compute()` method, instead of as a metric object
-        # otherwise metric would be reset by lightning after each epoch
-        self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
+        loss = self.val_loss.compute() 
+        self.val_loss_best(loss) 
+        self.log("val/loss_best", self.val_loss_best.compute(), prog_bar=True)
 
     def test_step(self, batch: Any, batch_idx: int):
+        output = self(batch)
+
+        self.test_loss(output["loss"])
+        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
+        return output
+    
+    def log_params_as_histogram(self):
+        '''Save weight histogram to tensorboard'''
 
         import pdb
         pdb.set_trace()
 
-        loss, preds, targets = self(batch)
-
-        # update and log metrics
-        self.test_loss(loss)
-        self.test_acc(preds, targets)
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return {"loss": loss, "preds": preds, "targets": targets}
+        for name, params in self.named_parameters():
+            self.logger.experiment.add_histogram(name, params, self.current_epoch)

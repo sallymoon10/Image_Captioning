@@ -212,3 +212,17 @@ def save_file(path: str, content: str) -> None:
     """Save file in rank zero mode (only on one process in multi-GPU setup)."""
     with open(path, "w+") as file:
         file.write(content)
+
+def set_module_requires_grad_(module, requires_grad):
+    for param in module.parameters():
+        param.requires_grad = requires_grad
+
+def freeze_all_layers_(module):
+    set_module_requires_grad_(module, False)
+
+def unfreeze_all_layers_(module):
+    set_module_requires_grad_(module, True)
+
+def freeze_model_and_make_eval(model):
+    model.eval()
+    freeze_all_layers_(model)
