@@ -1,4 +1,4 @@
-from pytorch_lightening import LightningModule
+from pytorch_lightning import LightningModule
 import torch
 from torchmetrics import MaxMetric, MeanMetric
 from typing import Any, List
@@ -10,18 +10,22 @@ class VitGpt2(LightningModule):
     '''
     Load pre-traine Vit-GPT2 model from (https://huggingface.co/nlpconnect/vit-gpt2-image-captioning) 
     - fine-tune on other datasets
+    - VisionEncoderDecoderModel: uses visuon model as encoder, and language model as decoder
+        - implements cross attention to pay attention to visual features and generate text outputs
+        - training: https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder
     '''
-    def __init__(self, max_length = 16, num_beams = 4):
+    def __init__(self, optimizer, scheduler, data_dir: str, max_length = 16, num_beams = 4):
         super().__init__()
-
+    
+        self.optimizer = optimizer
+        self.scheduler = scheduler
         self.gen_kwargs = {"max_length": max_length, "num_beams": num_beams}
+
+        self.image_dir = data_dir + "images/"
 
         self.model = VisionEncoderDecoderModel.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
         self.feature_extractor = ViTFeatureExtractor.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
         self.tokenizer = AutoTokenizer.from_pretrained("nlpconnect/vit-gpt2-image-captioning")
-
-        # loss function
-        self.criterion = nn.CrossEntropyLoss()
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -32,9 +36,9 @@ class VitGpt2(LightningModule):
         self.val_acc_best = MaxMetric()
 
     def configure_optimizers(self):
-        optimizer = self.hparams.optimizer(params=self.parameters())
-        if self.hparams.scheduler is not None:
-            scheduler = self.hparams.scheduler(optimizer=optimizer)
+        optimizer = self.optimizer(params=self.parameters())
+        if self.scheduler is not None:
+            scheduler = self.scheduler(optimizer=optimizer)
             return {
                 "optimizer": optimizer,
                 "lr_scheduler": {
@@ -51,38 +55,41 @@ class VitGpt2(LightningModule):
         Load image path and text caption taget
         - reference: https://huggingface.co/nlpconnect/vit-gpt2-image-captioning
         '''
-        import pdb
-        pdb.set_trace()
-        
-        image_paths = input["image_path"]
+        image_names = input["images"]
         caption_target = input["caption"]
         logits = 0
         loss = 0
-
         images = []
-        for image_path in image_paths:
-            i_image = Image.open(image_path)
+
+        for name in image_names:
+            i_image = Image.open(self.image_dir + name)
             if i_image.mode != "RGB":
                 i_image = i_image.convert(mode="RGB")
 
             images.append(i_image)
 
-        pixel_values = self.feature_extractor(images=images, return_tensors="pt").pixel_values
+        import pdb
+        pdb.set_trace()
+
+        pixel_values = self.feature_extractor(images=images, return_tensors="pt").pixel_values # (bs, num_channels, w, h)
         pixel_values = pixel_values.to(self.device)
 
-        logits = self.model(pixel_values)
 
+        # generate output logits
+        loss = self.model(pixel_values=pixel_values, labels=caption_target).loss
+
+        # generate caption
         output_ids = self.model.generate(pixel_values, **self.gen_kwargs)
-        preds = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)
-        preds = [pred.strip() for pred in preds]
+        output_caption = self.tokenizer.batch_decode(output_ids, skip_special_tokens=True)[0]
+        # caption = [pred.strip() for pred in preds]
 
-        if caption_target is not None:
-            loss_fct = nn.CrossEntropyLoss(ignore_index=-1)
-            loss = loss_fct(logits.view(-1, logits.size(-1)), caption_target.view(-1))
-
-        return {"loss": loss, "logits": logits, "output_ids": output_ids}
+        return {"loss": loss, "output_caption": output_caption}
     
     def training_step(self, batch: Any, batch_idx: int):
+
+        import pdb
+        pdb.set_trace()
+
         loss, preds, targets = self(batch)
 
         # update and log metrics
@@ -98,6 +105,10 @@ class VitGpt2(LightningModule):
 
 
     def validation_step(self, batch: Any, batch_idx: int):
+
+        import pdb
+        pdb.set_trace()
+
         loss, preds, targets = self(batch)
 
         # update and log metrics
@@ -116,6 +127,10 @@ class VitGpt2(LightningModule):
         self.log("val/acc_best", self.val_acc_best.compute(), prog_bar=True)
 
     def test_step(self, batch: Any, batch_idx: int):
+
+        import pdb
+        pdb.set_trace()
+
         loss, preds, targets = self(batch)
 
         # update and log metrics

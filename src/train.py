@@ -1,4 +1,3 @@
-import pdb
 from utils import pyrootutils
 
 root = pyrootutils.setup_root(
@@ -8,15 +7,14 @@ root = pyrootutils.setup_root(
     dotenv=True,
 )
 
-from typing import List, Optional, Tuple
-
-import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from utils import pylogger, utils
+from typing import List, Optional, Tuple
+import hydra
 
 log = pylogger.get_pylogger(__name__)
 
@@ -40,11 +38,10 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     if cfg.get("seed"):
         pl.seed_everything(cfg.seed, workers=True)
     
-    import pdb
-    pdb.set_trace()
-    
     log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
+
+    add_configs_from_datamodule(cfg = cfg, datamodule=datamodule)
 
     log.info(f"Instantiating model <{cfg.model._target_}>")
     model: LightningModule = hydra.utils.instantiate(cfg.model)
@@ -92,6 +89,9 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     metric_dict = {**train_metrics, **test_metrics}
 
     return metric_dict, object_dict
+
+def add_configs_from_datamodule(cfg: DictConfig, datamodule):
+    cfg.model.data_dir = datamodule.data_dir
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="train.yaml")

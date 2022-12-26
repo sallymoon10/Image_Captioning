@@ -12,6 +12,7 @@ scheduler:
   factor: 0.1
   patience: 10
 
+data_dir: null
 max_length: 16
 num_beams: 4
 

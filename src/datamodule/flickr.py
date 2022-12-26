@@ -23,7 +23,7 @@ class FlickrDatamodule(LightningDataModule):
         train_ratio: float = 0.8,
         val_ratio: float = 0.1,
         test_ratio: float = 0.1,
-        batch_size: int = 64,
+        batch_size: int = 8,
         num_workers: int = 0,
         pin_memory: bool = False,
         image_col: str = 'image',
@@ -65,75 +65,68 @@ class FlickrDatamodule(LightningDataModule):
         return df_train, df_val, df_test
 
     def train_dataloader(self):
-        images = self.df_train[self.image_col]
-        captions = self.df_train[self.caption_col]
+        images = self.df_train[self.image_col].values
+        captions = self.df_train[self.caption_col].values
 
         image_data_loader = DataLoader(
             dataset=images,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
         caption_data_loader = DataLoader(
             dataset=captions,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
-        return CombinedLoader({"image_path": image_data_loader, "caption": caption_data_loader})
+        return CombinedLoader({"images": image_data_loader, "caption": caption_data_loader})
 
 
     def val_dataloader(self):
-        images = self.df_val[self.image_col]
-        captions = self.df_val[self.caption_col]
+        images = self.df_val[self.image_col].values
+        captions = self.df_val[self.caption_col].values
 
         image_data_loader = DataLoader(
             dataset=images,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
         caption_data_loader = DataLoader(
             dataset=captions,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
-        return CombinedLoader({"image_path": image_data_loader, "caption": caption_data_loader})
+        return CombinedLoader({"images": image_data_loader, "caption": caption_data_loader})
 
     def test_dataloader(self):
-        images = self.df_test[self.image_col]
-        captions = self.df_test[self.caption_col]
+        images = self.df_test[self.image_col].values
+        captions = self.df_test[self.caption_col].values
 
         image_data_loader = DataLoader(
             dataset=images,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
         caption_data_loader = DataLoader(
             dataset=captions,
-            batch_size=self.hparams.batch_size,
-            num_workers=self.hparams.num_workers,
-            pin_memory=self.hparams.pin_memory,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
             shuffle=False,
         )
 
-        return CombinedLoader({"image_path": image_data_loader, "caption": caption_data_loader})
-
-    def teardown(self, stage: Optional[str] = None):
-        """Clean up after fit or test."""
-        pass
-
-  
-
+        return CombinedLoader({"images": image_data_loader, "caption": caption_data_loader})
