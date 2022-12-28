@@ -7,4 +7,4 @@ test_ratio: 0.1
 batch_size: 64
 num_workers: 0
 pin_memory: False
-num_samples: None
+num_samples: null

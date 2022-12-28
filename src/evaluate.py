@@ -16,9 +16,8 @@ from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu, sentence_b
 from utils import pylogger, utils
 from typing import List, Optional, Tuple
 import hydra
-from PIL import Image
 from rouge import Rouge
-
+import pandas as pd
 
 log = pylogger.get_pylogger(__name__)
 
@@ -29,8 +28,7 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     Evaluate fine-tuned model from checkpoint
     """
     assert cfg.ckpt_path
-    import pdb
-    pdb.set_trace()
+    assert cfg.demo_folder_path
 
     log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
@@ -41,16 +39,14 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     best_model = model.load_from_checkpoint(cfg.ckpt_path)
-    print_eval_metrics(best_model=best_model, datamodule=datamodule)
+    print_eval_metrics(best_model=best_model, datamodule=datamodule, demo_folder_path=cfg.demo_folder_path)
 
+    return {}, {}
 
 def add_configs_from_datamodule(cfg: DictConfig, datamodule):
     cfg.model.data_dir = datamodule.data_dir
 
-def print_eval_metrics(best_model, datamodule, image_col = 'image', caption_col = 'caption'):
-    import pdb
-    pdb.set_trace()
-
+def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col = 'image', caption_col = 'caption'):
     test_input = {"images": list(datamodule.df_test[image_col]), "caption": list(datamodule.df_test[caption_col])}
     gen_captions = list(best_model(test_input)["output_caption"])
     truth_captions = list(datamodule.df_test[caption_col])
@@ -59,10 +55,19 @@ def print_eval_metrics(best_model, datamodule, image_col = 'image', caption_col 
     print('EVALUATION ON TEST SET')
     bleu = get_bleu_score(gen_captions=gen_captions, truth_captions=truth_captions)
     rouge = get_rouge_score(gen_captions=gen_captions, truth_captions=truth_captions)
-    print(f'BLEU score: \n {bleu}')
-    print(f'ROUGE score: \n {rouge}')
+    print(f'BLEU score:\n {bleu}\n')
+    print('ROUGE score: ')
+    for k, v in rouge.items():
+        print(f'{k}: {v}')
 
-    visualize_results_on_sample(best_model=best_model, datamodule=datamodule)
+    image_paths = [datamodule.data_dir + 'images/' + p for p in datamodule.df_test[image_col]]
+    test_results = pd.DataFrame(columns = ['image_paths', 'gen_captions', 'truth_captions'])
+    test_results['image_paths'] = image_paths
+    test_results['gen_captions'] = gen_captions
+    test_results['truth_captions'] = truth_captions
+    save_path = demo_folder_path + 'test_results.pickle'
+    test_results.to_pickle(save_path)
+    print(f'saved demo test results to : {save_path}')
 
 def get_bleu_score(gen_captions: list, truth_captions: list):
     ''' 
@@ -104,26 +109,6 @@ def get_rouge_score(gen_captions: list, truth_captions: list):
     rouge_scores = rouge.get_scores(gen_captions, truth_captions, avg=True)
 
     return rouge_scores
-
-
-def visualize_results_on_sample(best_model, datamodule, image_col = 'image', caption_col = 'caption'):
-    # sample from test set 
-    sample_test = datamodule.df_test.sample(n=10)
-    images = list(sample_test[image_col])
-    truth_captions = list(sample_test[caption_col])
-    pred_captions = best_model(images)["output_caption"]
-    
-    print('VISUALIZE MODEL OUTPUTS ON SAMPLE SET')
-    for i, name in enumerate(images):
-        i_image = Image.open(datamodule.data_dir + 'images/' + name)
-        if i_image.mode != "RGB":
-            i_image = i_image.convert(mode="RGB")
-        
-        print('\n\n--------------------------------------------------------------------\n')
-        i_image.show()
-        print(f'Ground truth caption: {truth_captions[i]}\n')
-        print(f'Predited caption: {pred_captions}')
-
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> None:
