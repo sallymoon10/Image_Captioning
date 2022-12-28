@@ -1,3 +1,7 @@
+'''
+Part of this code is taken from pytorch-lightening / hydra template (https://github.com/ashleve/lightning-hydra-template)
+'''
+
 import time
 import warnings
 from importlib.util import find_spec

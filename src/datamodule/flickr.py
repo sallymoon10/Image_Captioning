@@ -14,7 +14,8 @@ from sklearn.model_selection import train_test_split
 
 class FlickrDatamodule(LightningDataModule):
     """
-    Datamodule for Flickr dataset for testing
+    Datamodule for Flickr dataset
+    - dataset: 
     """
 
     def __init__(
@@ -26,6 +27,7 @@ class FlickrDatamodule(LightningDataModule):
         batch_size: int = 8,
         num_workers: int = 0,
         pin_memory: bool = False,
+        num_samples = None,
         image_col: str = 'image',
         caption_col:str = 'caption'
 
@@ -42,6 +44,7 @@ class FlickrDatamodule(LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
+        self.num_samples = num_samples
 
         self.df_train, self.df_val, self.df_test = self.prepare_data()
 
@@ -54,8 +57,16 @@ class FlickrDatamodule(LightningDataModule):
         # filter self.df for image_paths_available
         self.df = self.df.loc[self.df[self.image_col].isin(image_paths_available)]
 
+        # filter for those with valid text
+        self.df = self.df.loc[self.df[self.caption_col].notnull()]
+
+        if self.num_samples:
+            self.df = self.df.iloc[:self.num_samples]
+
+        images = self.df[self.image_col].values
+
         # add train, val, test split
-        train_images, rest_images = train_test_split(image_paths_available, train_size = self.train_ratio, shuffle = False, random_state = random_state)
+        train_images, rest_images = train_test_split(images, train_size = self.train_ratio, shuffle = False, random_state = random_state)
         val_images, test_images = train_test_split(rest_images, test_size = self.test_ratio/ (1 - self.train_ratio), shuffle = False, random_state = random_state)
 
         df_train = self.df.loc[self.df[self.image_col].isin(train_images)]

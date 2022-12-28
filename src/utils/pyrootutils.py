@@ -1,3 +1,7 @@
+'''
+This code is taken from pyrootutils repo at: https://github.com/ashleve/pyrootutils
+'''
+
 import os
 import sys
 from pathlib import Path

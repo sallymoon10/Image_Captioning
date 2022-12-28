@@ -1,3 +1,7 @@
+'''
+This code is taken from pytorch-lightening / hydra template (https://github.com/ashleve/lightning-hydra-template)
+'''
+
 from pathlib import Path
 from typing import Sequence
 

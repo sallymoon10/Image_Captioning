@@ -21,20 +21,10 @@ log = pylogger.get_pylogger(__name__)
 
 @utils.task_wrapper
 def train(cfg: DictConfig) -> Tuple[dict, dict]:
-    """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
-    training.
-
-    This method is wrapped in optional @task_wrapper decorator which applies extra utilities
-    before and after the call.
-
-    Args:
-        cfg (DictConfig): Configuration composed by Hydra.
-
-    Returns:
-        Tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
     """
-
-    # set seed for random number generators in pytorch, numpy and python.random
+    Training model with hydra and pytorch lightening wrapper (https://github.com/ashleve/lightning-hydra-template) 
+    - Sets up experiment based on configs and command overrides
+    """
     if cfg.get("seed"):
         pl.seed_everything(cfg.seed, workers=True)
     
@@ -84,8 +74,6 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
         log.info(f"Best ckpt path: {ckpt_path}")
 
     test_metrics = trainer.callback_metrics
-
-    # merge train and test metrics
     metric_dict = {**train_metrics, **test_metrics}
 
     return metric_dict, object_dict
@@ -93,19 +81,13 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 def add_configs_from_datamodule(cfg: DictConfig, datamodule):
     cfg.model.data_dir = datamodule.data_dir
 
-
 @hydra.main(version_base="1.3", config_path="../configs", config_name="train.yaml")
 def main(cfg: DictConfig) -> Optional[float]:
-
-    # train the model
     metric_dict, _ = train(cfg)
 
-    # safely retrieve metric value for hydra-based hyperparameter optimization
     metric_value = utils.get_metric_value(
         metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")
     )
-
-    # return optimized metric
     return metric_value
 
 
@@ -113,6 +95,7 @@ if __name__ == "__main__":
     main()
 
     '''
+    poetry run python train.py datamodule='flickr.yaml'
 
-    poetry run python train.py
+    poetry run python train.py datamodule='medicat.yaml'
     '''

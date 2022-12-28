@@ -1,3 +1,7 @@
+'''
+This code is taken from pytorch-lightening / hydra template (https://github.com/ashleve/lightning-hydra-template)
+'''
+
 import logging
 
 from pytorch_lightning.utilities import rank_zero_only

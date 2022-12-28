@@ -2,10 +2,11 @@
 
 defaults:
   - _self_
-  - datamodule: mnist.yaml # choose datamodule with `test_dataloader()` for evaluation
-  - model: mnist.yaml
-  - logger: null
-  - trainer: default.yaml
+  - datamodule: flickr.yaml
+  - model: vit_gpt2.yaml
+  - callbacks: default.yaml
+  - logger: tensorboard.yaml # set logger here or use command line (e.g. `python train.py logger=tensorboard`)
+  - trainer: gpu.yaml
   - paths: default.yaml
   - extras: default.yaml
   - hydra: default.yaml

@@ -1,7 +1,7 @@
 from pytorch_lightning import LightningModule
 import torch
 from torchmetrics import MinMetric, MeanMetric
-from typing import Any, List
+from typing import Any, List, Optional
 from transformers import VisionEncoderDecoderModel, ViTFeatureExtractor, AutoTokenizer
 from PIL import Image
 from torch import nn
@@ -9,14 +9,24 @@ from utils.utils import freeze_model_and_make_eval
 
 class VitGpt2(LightningModule):
     '''
-    Load pre-traine Vit-GPT2 model from (https://huggingface.co/nlpconnect/vit-gpt2-image-captioning) 
-    - fine-tune on other datasets
-    - VisionEncoderDecoderModel: uses visuon model as encoder, and language model as decoder
+    - Load pre-trained Vit-GPT2 model from: https://huggingface.co/nlpconnect/vit-gpt2-image-captioning
+    - Fine-tune on other datasets (i.e. Flickr, Medicat)
+    - VisionEncoderDecoderModel: uses vision model as encoder, and language model as decoder
         - implements cross attention to pay attention to visual features and generate text outputs
-        - training: https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder
+        - training notes can be found here: https://huggingface.co/docs/transformers/model_doc/vision-encoder-decoder
     '''
-    def __init__(self, optimizer, scheduler, data_dir: str, max_length = 16, num_beams = 4, num_layers_to_train = 1):
+    def __init__(self, optimizer: torch.optim, scheduler: torch.optim, data_dir: str, max_length: Optional[int] = 16, num_beams: Optional[int]  = 4, num_layers_to_train: Optional[int]  = 1):
+        '''
+        Inputs:
+        - optimizer: optimizer to train model, set up in configs/model/vit_gpt2.yaml
+        - scheduler: schedules the learning rate throughout training, set up in configs/model/vit_gpt2.yaml
+        - data_dir: directory containing data (images and corresponding captions)
+        - max_length: max_length of generated caption
+        - num_beams: number of beams to generate caption
+        - num_layers_to_train: number of layers from the last layer of encoder and decoder to unfreeze and train during fine-tuning
+        '''
         super().__init__()
+        self.save_hyperparameters(logger=False)  # allows init params to be stored in ckpt
     
         self.optimizer = optimizer
         self.scheduler = scheduler
@@ -127,9 +137,5 @@ class VitGpt2(LightningModule):
     
     def log_params_as_histogram(self):
         '''Save weight histogram to tensorboard'''
-
-        import pdb
-        pdb.set_trace()
-
         for name, params in self.named_parameters():
             self.logger.experiment.add_histogram(name, params, self.current_epoch)
