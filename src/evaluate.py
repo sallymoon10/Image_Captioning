@@ -46,10 +46,13 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
 def add_configs_from_datamodule(cfg: DictConfig, datamodule):
     cfg.model.data_dir = datamodule.data_dir
 
-def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col = 'image', caption_col = 'caption'):
-    test_input = {"images": list(datamodule.df_test[image_col]), "caption": list(datamodule.df_test[caption_col])}
+def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col = 'image', caption_col = 'caption', num_test = 100):
+    print(f'Selecting random {num_test} number of samples from test set, due to limited compute resources')
+    df_test = datamodule.df_test.sample(n =num_test)
+
+    test_input = {"images": list(df_test[image_col]), "caption": list(df_test[caption_col])}
     gen_captions = list(best_model(test_input)["output_caption"])
-    truth_captions = list(datamodule.df_test[caption_col])
+    truth_captions = list(df_test[caption_col])
 
     print('--------------------------------------------------------------------\n')
     print('EVALUATION ON TEST SET')
@@ -60,7 +63,7 @@ def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col 
     for k, v in rouge.items():
         print(f'{k}: {v}')
 
-    image_paths = [datamodule.data_dir + 'images/' + p for p in datamodule.df_test[image_col]]
+    image_paths = [datamodule.data_dir + 'images/' + p for p in df_test[image_col]]
     test_results = pd.DataFrame(columns = ['image_paths', 'gen_captions', 'truth_captions'])
     test_results['image_paths'] = image_paths
     test_results['gen_captions'] = gen_captions

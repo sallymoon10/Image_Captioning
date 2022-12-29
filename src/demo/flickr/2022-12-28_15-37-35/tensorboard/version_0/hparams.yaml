@@ -1,0 +1,79 @@
+model:
+  _target_: src.models.vit_gpt2.VitGpt2
+  optimizer:
+    _target_: torch.optim.Adam
+    _partial_: true
+    lr: 0.001
+    weight_decay: 0.0
+  scheduler:
+    _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+    _partial_: true
+    mode: min
+    factor: 0.1
+    patience: 10
+  data_dir: data/flickr/
+  max_length: 16
+  num_beams: 4
+model/params/total: 239195904
+model/params/trainable: 592128
+model/params/non_trainable: 238603776
+datamodule:
+  _target_: src.datamodule.flickr.FlickrDatamodule
+  data_dir: data/flickr/
+  train_ratio: 0.8
+  val_ratio: 0.1
+  test_ratio: 0.1
+  batch_size: 64
+  num_workers: 0
+  pin_memory: false
+trainer:
+  _target_: pytorch_lightning.Trainer
+  default_root_dir: /content/drive/MyDrive/Code/Medical_Image_Captioning/logs/train/runs/2022-12-28_15-37-35
+  min_epochs: 1
+  max_epochs: 2
+  accelerator: gpu
+  devices: 1
+  check_val_every_n_epoch: 1
+  deterministic: false
+callbacks:
+  model_checkpoint:
+    _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    dirpath: /content/drive/MyDrive/Code/Medical_Image_Captioning/logs/train/runs/2022-12-28_15-37-35/checkpoints
+    filename: epoch_{epoch:03d}
+    monitor: val/loss
+    verbose: false
+    save_last: true
+    save_top_k: 1
+    mode: max
+    auto_insert_metric_name: false
+    save_weights_only: false
+    every_n_train_steps: null
+    train_time_interval: null
+    every_n_epochs: null
+    save_on_train_epoch_end: null
+  early_stopping:
+    _target_: pytorch_lightning.callbacks.EarlyStopping
+    monitor: val/loss
+    min_delta: 0.0
+    patience: 3
+    verbose: false
+    mode: max
+    strict: true
+    check_finite: true
+    stopping_threshold: null
+    divergence_threshold: null
+    check_on_train_epoch_end: null
+  model_summary:
+    _target_: pytorch_lightning.callbacks.RichModelSummary
+    max_depth: -1
+  rich_progress_bar:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+extras:
+  ignore_warnings: false
+  enforce_tags: true
+  print_config: true
+task_name: train
+tags:
+- dev
+ckpt_path: null
+seed: null

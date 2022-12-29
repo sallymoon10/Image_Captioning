@@ -4,6 +4,7 @@ src/data/
 logs/
 .DS_Store
 src/.DS_Store
+*.ckpt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
