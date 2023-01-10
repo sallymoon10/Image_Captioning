@@ -12,6 +12,8 @@ from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
 from pytorch_lightning.loggers import LightningLoggerBase
 from nltk.translate.bleu_score import SmoothingFunction, corpus_bleu, sentence_bleu
+from transformers import VisionEncoderDecoderModel
+
 
 from utils import pylogger, utils
 from typing import List, Optional, Tuple
@@ -23,7 +25,7 @@ log = pylogger.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
+def evaluate(cfg: DictConfig):
     """
     Evaluate fine-tuned model from checkpoint
     """
@@ -39,16 +41,31 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     best_model = model.load_from_checkpoint(cfg.ckpt_path)
-    print_eval_metrics(best_model=best_model, datamodule=datamodule, demo_folder_path=cfg.demo_folder_path)
+    print_eval_metrics(best_model=best_model, datamodule=datamodule, demo_folder_path=cfg.demo_folder_path, test_results_name="fined_tuned_test_results")
+
+    return {}, {}
+
+@utils.task_wrapper
+def evaluate_zero_shot(cfg: DictConfig):
+    assert cfg.ckpt_path
+    assert cfg.demo_folder_path
+
+    log.info(f"Instantiating datamodule <{cfg.datamodule._target_}>")
+    datamodule: LightningDataModule = hydra.utils.instantiate(cfg.datamodule)
+
+    add_configs_from_datamodule(cfg = cfg, datamodule=datamodule)
+
+    original_model = hydra.utils.instantiate(cfg.model)
+    print_eval_metrics(best_model=original_model, datamodule=datamodule, demo_folder_path=cfg.demo_folder_path, test_results_name="zero_shot_test_results")
 
     return {}, {}
 
 def add_configs_from_datamodule(cfg: DictConfig, datamodule):
     cfg.model.data_dir = datamodule.data_dir
 
-def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col = 'image', caption_col = 'caption', num_test = 100):
+def print_eval_metrics(best_model, datamodule, demo_folder_path: str, test_results_name: str, image_col = 'image', caption_col = 'caption', num_test = 100):
     print(f'Selecting random {num_test} number of samples from test set, due to limited compute resources')
-    df_test = datamodule.df_test.sample(n =num_test)
+    df_test = datamodule.df_test.sample(n =num_test, random_state=100)
 
     test_input = {"images": list(df_test[image_col]), "caption": list(df_test[caption_col])}
     gen_captions = list(best_model(test_input)["output_caption"])
@@ -68,7 +85,7 @@ def print_eval_metrics(best_model, datamodule, demo_folder_path: str, image_col 
     test_results['image_paths'] = image_paths
     test_results['gen_captions'] = gen_captions
     test_results['truth_captions'] = truth_captions
-    save_path = demo_folder_path + 'test_results.pickle'
+    save_path = demo_folder_path + test_results_name + '.pickle'
     test_results.to_pickle(save_path)
     print(f'saved demo test results to : {save_path}')
 
@@ -115,7 +132,11 @@ def get_rouge_score(gen_captions: list, truth_captions: list):
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")
 def main(cfg: DictConfig) -> None:
+    print('----------------ZERO SHOT PERFORMANCE----------------')
+    evaluate_zero_shot(cfg)
+    print('----------------FINED TUNED PERFORMANCE----------------')
     evaluate(cfg)
 
 if __name__ == "__main__":
+    
     main()

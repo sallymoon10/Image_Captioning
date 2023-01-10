@@ -57,8 +57,8 @@ class VitGpt2(LightningModule):
         Unfreeze layer layer of encoder and decoder
         - Manually identified last layers to unfreeze for demonstration purposes
         '''
-        encoder_last_layer = ['model.encoder.encoder.layer.11.attention.attention.query.bias', 'model.encoder.encoder.layer.11.attention.attention.key.weight', 'model.encoder.encoder.layer.11.attention.attention.key.bias', 'model.encoder.encoder.layer.11.attention.attention.value.weight', 'model.encoder.encoder.layer.11.attention.attention.value.bias', 'model.encoder.encoder.layer.11.attention.output.dense.weight', 'model.encoder.encoder.layer.11.attention.output.dense.bias', 'model.encoder.encoder.layer.11.intermediate.dense.weight', 'model.encoder.encoder.layer.11.intermediate.dense.bias', 'model.encoder.encoder.layer.11.output.dense.weight', 'model.encoder.encoder.layer.11.output.dense.bias', 'model.encoder.encoder.layer.11.layernorm_before.weight', 'model.encoder.encoder.layer.11.layernorm_before.bias', 'model.encoder.encoder.layer.11.layernorm_after.weight', 'model.encoder.encoder.layer.11.layernorm_after.bias']
-        decoder_last_layer = ['model.decoder.transformer.h.11.ln_1.weight', 'model.decoder.transformer.h.11.ln_1.bias', 'model.decoder.transformer.h.11.attn.c_attn.weight', 'model.decoder.transformer.h.11.attn.c_attn.bias', 'model.decoder.transformer.h.11.attn.c_proj.weight', 'model.decoder.transformer.h.11.attn.c_proj.bias', 'model.decoder.transformer.h.11.ln_2.weight', 'model.decoder.transformer.h.11.ln_2.bias', 'model.decoder.transformer.h.11.crossattention.c_attn.weight', 'model.decoder.transformer.h.11.crossattention.c_attn.bias', 'model.decoder.transformer.h.11.crossattention.q_attn.weight', 'model.decoder.transformer.h.11.crossattention.q_attn.bias', 'model.decoder.transformer.h.11.crossattention.c_proj.weight', 'model.decoder.transformer.h.11.crossattention.c_proj.bias', 'model.decoder.transformer.h.11.ln_cross_attn.weight', 'model.decoder.transformer.h.11.ln_cross_attn.bias', 'model.decoder.transformer.h.11.mlp.c_fc.weight', 'model.decoder.transformer.h.11.mlp.c_fc.bias', 'model.decoder.transformer.h.11.mlp.c_proj.weight', 'model.decoder.transformer.h.11.mlp.c_proj.bias']
+        encoder_last_layer = ['model.encoder.encoder.layer.11.output.dense.weight', 'model.encoder.encoder.layer.11.output.dense.bias', 'model.encoder.encoder.layer.11.layernorm_before.weight', 'model.encoder.encoder.layer.11.layernorm_before.bias', 'model.encoder.encoder.layer.11.layernorm_after.weight', 'model.encoder.encoder.layer.11.layernorm_after.bias']
+        decoder_last_layer = ['model.decoder.transformer.h.11.mlp.c_fc.weight', 'model.decoder.transformer.h.11.mlp.c_fc.bias', 'model.decoder.transformer.h.11.mlp.c_proj.weight', 'model.decoder.transformer.h.11.mlp.c_proj.bias']
 
         for name, param in dict(self.named_parameters()).items():
             if name in encoder_last_layer or name in decoder_last_layer:
@@ -92,7 +92,6 @@ class VitGpt2(LightningModule):
             i_image = Image.open(self.image_dir + name)
             if i_image.mode != "RGB":
                 i_image = i_image.convert(mode="RGB")
-
             images.append(i_image)
 
         pixel_values = self.feature_extractor(images=images, return_tensors="pt").pixel_values # (bs, num_channels, w, h)
