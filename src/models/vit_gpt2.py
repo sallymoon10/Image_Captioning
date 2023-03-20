@@ -115,9 +115,12 @@ class VitGpt2(LightningModule):
         global_step = self.global_step
         for name, param in self.named_parameters():
             if param.requires_grad and param.grad is not None:
-                abs_mean_grad = abs(param.grad).mean()
-                self.logger.experiment.add_histogram(f"{name}_grad", param.grad, global_step)
-                self.logger.experiment.add_scalar(f"{name}_abs_mean_grad", abs_mean_grad, global_step)
+                try:
+                    abs_mean_grad = abs(param.grad).mean()
+                    self.logger.experiment.add_histogram(f"{name}_grad", param.grad, global_step)
+                    self.logger.experiment.add_scalar(f"{name}_abs_mean_grad", abs_mean_grad, global_step)
+                except Exception as e:
+                    breakpoint()
 
     def training_step(self, batch: Any, batch_idx: int):
         output = self(batch)

@@ -1,15 +1,11 @@
 # Image captioning fine-tuning pipeline using pytorch lightening and hydra
 
-TODO:
-
-- check to see which layers make sense to unfreeze for fine-tuning (right now, just unfroze the last layer. but maybe identify them by name) --> check tensorboard logs of weight histogram for that layer specifically
-- already added sample images of inference on test set for flicker on 10k, and train / val loss --> add them to read me
-- run similar experiment on medicat dataset
-
 
 Purpose:
 - Provide proof of concept for how pre-trained image captioning model can be fine-tuned to solve similar tasks in different domains
-- Learn how to utilize pytorch lightening, hydra and poetry to optimize model development and evaluation pipeline
+- Demontrate how to utilize pytorch lightening, hydra and poetry to optimize model development and evaluation pipeline
+
+![Alt text](./images/vit_gpt2_diagram.png "Vit-GPT2")
 
 Code contribution:
 - Datamodules to process Flickr and medicat dataset (src/datamodule)
@@ -50,42 +46,20 @@ poetry run python train.py datamodule='flickr.yaml' datamodule.num_samples=5000 
 **Evaluation**
 - The best model run (outputted from hydra) was transferred to this folder: src/demo/flickr/
 
+- The train and validation loss is shown below. Although it was difficult to see signs of overfitting / underfitting due to lack of number of epochs trained, we could see that both train and validation loss decrease over time which suggest that the model was making progress in learning. 
+![Alt text](./images/flickr/flickr_train_loss.png)
+![Alt text](./images/flickr/flickr_val_loss.png)
 
-- The tensorboard logs of the run are shown below:
+- The histogram of the encoder and decoder weights were logged on tensorboard. This model did not train for many epochs due to lack of personal compute resources. However, because the flickr dataset is in similar domain to the one that the model was trained on, we expect to see only small changes in the distribution of the weights as we observe in these histograms. 
 
+![Alt text](./images/flickr/flickr_encoder_weights.png)
 
-- The histogram of weights show that ...
-
-
-- Here are the fine-tuned model's outputs to sample images in the test set
-
-
-
-## B. Image captioning transfer learning on Medical dataset (In progress)
-
-- Purpose: to evaluate the usefulness of a general pre-trained image captioning model to solve more image captioning tasks in the medical domain
-- NOTE: the performance of the fine-tuned model is heavily limited by limited personal compute resources
-  - It is predicted that unfreezing more layers, or training for longer epochs will train a better model to solve image captioning on a significantly different, medical domain
-
-**Training**
-
-```
-poetry run python train.py datamodule='medicat.yaml'
-poetry run python train.py datamodule='medicat.yaml' trainer='default.yaml' # to run on CPU
-poetry run python train.py datamodule='medicat.yaml' datamodule.num_samples=5000 # to run on a smaller subset of the data
-```
-
-- To run on google colab, run 'run_medicat.ipynb'
+![Alt text](./images/flickr/flickr_decoder_weights.png)
 
 
-**Evaluation**
-- The best model run (outputted from hydra) was transferred to this folder: src/demo/flickr/
+- Here are the fine-tuned model's outputs to sample images in the test set. We see that the predicted captions are partially correct and simple, but contain some errors in describing the details. 
 
+![Alt text](./images/flickr/flickr_1.png)
+![Alt text](./images/flickr/flickr_2.png)
+![Alt text](./images/flickr/flickr_3.png)
 
-- The tensorboard logs of the run are shown below:
-
-
-- The histogram of weights show that ...
-
-
-- Here are the fine-tuned model's outputs to sample images in the test set

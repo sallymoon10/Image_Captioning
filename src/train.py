@@ -1,12 +1,3 @@
-from utils import pyrootutils
-
-root = pyrootutils.setup_root(
-    search_from=__file__,
-    indicator=["README.md"],
-    pythonpath=True,
-    dotenv=True,
-)
-
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
@@ -19,12 +10,7 @@ import hydra
 log = pylogger.get_pylogger(__name__)
 
 
-@utils.task_wrapper
 def train(cfg: DictConfig) -> Tuple[dict, dict]:
-    """
-    Training model with hydra and pytorch lightening wrapper (https://github.com/ashleve/lightning-hydra-template) 
-    - Sets up experiment based on configs and command overrides
-    """
     if cfg.get("seed"):
         pl.seed_everything(cfg.seed, workers=True)
     
