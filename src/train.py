@@ -83,5 +83,5 @@ if __name__ == "__main__":
     '''
     poetry run python train.py datamodule='flickr.yaml'
 
-    poetry run python train.py datamodule='medicat.yaml'
+    poetry run python train.py datamodule='cartoon.yaml'
     '''

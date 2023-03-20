@@ -1,6 +1,5 @@
-_target_: src.datamodule.flickr.FlickrDatamodule
-
-data_dir: ${paths.data_dir}flickr/
+_target_: src.datamodule.cartoon.CartoonDatamodule
+data_dir: ${paths.data_dir}cartoon/
 train_ratio: 0.8
 val_ratio: 0.1
 test_ratio: 0.1

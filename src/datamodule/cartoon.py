@@ -1,15 +1,15 @@
 from pytorch_lightning import LightningDataModule
 from pytorch_lightning.trainer.supporters import CombinedLoader
-from torch.utils.data import  DataLoader
+from torch.utils.data import DataLoader
 from PIL import Image
 import pandas as pd
 from os import listdir
 from sklearn.model_selection import train_test_split
 
-class FlickrDatamodule(LightningDataModule):
+class CartoonDatamodule(LightningDataModule):
     """
-    Datamodule for Flickr dataset
-    - dataset: https://www.kaggle.com/datasets/adityajn105/flickr30k
+    Datamodule for NY cartoon dataset
+    - dataset: https://github.com/nextml/caption-contest-data
     """
 
     def __init__(
@@ -42,15 +42,26 @@ class FlickrDatamodule(LightningDataModule):
 
         self.df_train, self.df_val, self.df_test = self.prepare_data()
 
+    def read_caption(self, image: str, summary_file = '_LilUCB.csv'):
+        try:
+            caption_df = pd.read_csv(image + summary_file)
+            return caption_df['caption'].iloc[0]
+
+        except Exception as e:
+            return None
+
+
     def prepare_data(self, random_state = 100):
+        breakpoint()
+        self.df = pd.DataFrame()
+        caption_data = listdir(self.data_dir + 'summaries')
+        self.df[self.image_col] = listdir(self.data_dir + 'images')
+        self.df[self.caption_col] = self.df[self.image_col].apply(lambda image: self.read_caption(image))
+
+        
         self.df = pd.read_csv(self.data_dir + "captions.txt")
 
-        # Get images paths that exist in the data folder (in case sample set is being used)
-        image_paths_available = listdir(self.data_dir + 'images')
-
-        # filter self.df for image_paths_available
-        self.df = self.df.loc[self.df[self.image_col].isin(image_paths_available)]
-
+    
         # filter for those with valid text
         self.df = self.df.loc[self.df[self.caption_col].notnull()]
 
